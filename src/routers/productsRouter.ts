@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addProductController, deleteProductController, getAllProducts, getProductByIdController, getProductsByCategoryController, updateProductController } from "../controllers/ProductsController";
+import { addProductController, adjustStockController, deleteProductController, getAllProducts, getLowStockProducts, getLowStockProductsController, getProductByIdController, getProductsByCategoryController,sellProductsController,updateProductController } from "../controllers/ProductsController";
 
 
 const productsRouter: Router = Router();
@@ -12,6 +12,8 @@ productsRouter.get("/category", getProductsByCategoryController); // Nueva ruta 
 productsRouter.put("/:id", updateProductController);
 productsRouter.get("/:id", getProductByIdController);
 productsRouter.delete("/:id", deleteProductController); // Ruta para eliminar un producto
+productsRouter.patch("/:id/adjust-stock", adjustStockController);
+productsRouter.post("/sales", sellProductsController)
 
 
 

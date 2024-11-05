@@ -9,8 +9,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProductController = exports.getProductByIdController = exports.updateProductController = exports.getProductsByCategoryController = exports.addProductController = exports.getAllProducts = void 0;
-const productsService_1 = require("../services/productsService"); // Importa tu servicio de productos
+exports.getLowStockProductsController = exports.checkStockController = exports.getLowStockProducts = exports.sellProductsController = exports.adjustStockController = exports.deleteProductController = exports.getProductByIdController = exports.updateProductController = exports.getProductsByCategoryController = exports.addProductController = exports.getAllProducts = void 0;
+const productsService_1 = require("../services/productsService");
+const checkLowStockMiddleware_1 = require("../middlewares/checkLowStockMiddleware");
 // Controlador para obtener todos los productos
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -94,7 +95,8 @@ const deleteProductController = (req, res) => __awaiter(void 0, void 0, void 0, 
     try {
         const { id } = req.params; // Obtener el ID del producto desde los parámetros de la solicitud
         yield (0, productsService_1.deleteProductService)(parseInt(id)); // Llama al servicio para eliminar el producto
-        res.status(204).send(); // Responde con un código de estado 204 (No Content)
+        res.status(200).json({ message: 'Producto eliminado correctamente' });
+        console.log('Se eliminó exitosamente el producto'); // Cambié console.error a console.log
     }
     catch (error) {
         console.error('Error al eliminar producto:', error);
@@ -102,3 +104,72 @@ const deleteProductController = (req, res) => __awaiter(void 0, void 0, void 0, 
     }
 });
 exports.deleteProductController = deleteProductController;
+const adjustStockController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { quantity } = req.body;
+        if (quantity === undefined || quantity === 0) {
+            return res.status(400).json({ message: "La cantidad debe ser un número diferente de cero" });
+        }
+        const updatedProduct = yield (0, productsService_1.adjustStockService)(parseInt(id), quantity);
+        res.status(200).json({ message: "Stock ajustado correctamente", product: updatedProduct });
+    }
+    catch (error) {
+        console.error("Error al ajustar el stock:", error.message);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.adjustStockController = adjustStockController;
+const sellProductsController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const items = req.body; // Obtener la lista de artículos desde el cuerpo de la solicitud
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ message: "Se debe proporcionar un array de artículos para vender" });
+        }
+        const updatedProducts = yield (0, productsService_1.sellProductsService)(items);
+        yield (0, checkLowStockMiddleware_1.checkLowStockMiddleware)(req, res, () => { }); // Llama al middleware para verificar el stock
+        res.status(200).json({ message: "Ventas realizadas correctamente", products: updatedProducts });
+    }
+    catch (error) {
+        console.error("Error al realizar la venta:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.sellProductsController = sellProductsController;
+const getLowStockProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const lowStockProducts = yield (0, productsService_1.checkLowStock)();
+        if (lowStockProducts.length === 0) {
+            return res.status(200).json({ message: "No hay productos con stock bajo" });
+        }
+        res.status(200).json({ message: "Productos con stock bajo", products: lowStockProducts });
+    }
+    catch (error) {
+        console.error("Error al obtener productos con stock bajo:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.getLowStockProducts = getLowStockProducts;
+const checkStockController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield (0, productsService_1.notifyLowStock)();
+        res.status(200).json({ message: "Verificación de stock realizada" });
+    }
+    catch (error) {
+        console.error("Error al verificar stock:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.checkStockController = checkStockController;
+// src/controllers/ProductsController.ts
+const getLowStockProductsController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const lowStockProducts = yield (0, productsService_1.getLowStockProductsService)();
+        res.status(200).json(lowStockProducts);
+    }
+    catch (error) {
+        console.error("Error al obtener productos con stock bajo:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.getLowStockProductsController = getLowStockProductsController;

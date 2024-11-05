@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProductService = exports.getProductByIdService = exports.updateProductService = exports.getProductsByCategoryService = exports.addProductService = exports.getProductsService = void 0;
+exports.getLowStockProductsService = exports.notifyLowStock = exports.checkLowStock = exports.sellProductsService = exports.adjustStockService = exports.deleteProductService = exports.getProductByIdService = exports.updateProductService = exports.getProductsByCategoryService = exports.addProductService = exports.getProductsService = void 0;
 const Products_1 = require("../entities/Products"); // Asegúrate de ajustar la ruta según tu estructura de archivos
 const data_source_1 = require("../config/data-source"); // Ajusta la ruta a tu archivo de configuración
 const ModelosDeCarros_1 = require("../entities/ModelosDeCarros");
@@ -84,3 +84,75 @@ const deleteProductService = (id) => __awaiter(void 0, void 0, void 0, function*
     yield data_source_1.productModel.remove(product); // Eliminar el producto de la base de datos
 });
 exports.deleteProductService = deleteProductService;
+// Servicio para ajustar el stock de un producto
+const adjustStockService = (id, quantity) => __awaiter(void 0, void 0, void 0, function* () {
+    const product = yield data_source_1.productModel.findOne({ where: { id } });
+    if (!product) {
+        throw new Error(`Producto con ID ${id} no encontrado`);
+    }
+    // Validación para asegurarse de que el stock no quede en negativo
+    const newStock = product.stock + quantity;
+    if (newStock < 0) {
+        throw new Error("La operación excede el stock disponible");
+    }
+    // Ajustar el stock (sumar o restar según el valor de quantity)
+    product.stock = newStock;
+    // Guardar el cambio en la base de datos
+    yield data_source_1.productModel.save(product);
+    return product;
+});
+exports.adjustStockService = adjustStockService;
+const sellProductsService = (items) => __awaiter(void 0, void 0, void 0, function* () {
+    const productRepository = data_source_1.AppDataSource.getRepository(Products_1.Products);
+    const updatedProducts = [];
+    for (const item of items) {
+        const { productId, quantity } = item;
+        // Buscar el producto por ID
+        const product = yield productRepository.findOne({ where: { id: productId } });
+        if (!product) {
+            throw new Error(`Producto con ID ${productId} no encontrado`);
+        }
+        // Verificar que haya suficiente stock
+        if (product.stock < quantity) {
+            throw new Error(`Stock insuficiente para el producto con ID ${productId}`);
+        }
+        // Restar la cantidad vendida del stock
+        product.stock -= quantity;
+        // Guardar los cambios en la base de datos
+        yield productRepository.save(product);
+        updatedProducts.push(product); // Agregar el producto actualizado a la lista
+    }
+    return updatedProducts;
+});
+exports.sellProductsService = sellProductsService;
+// services/stockService.ts
+const checkLowStock = () => __awaiter(void 0, void 0, void 0, function* () {
+    const productRepository = data_source_1.AppDataSource.getRepository(Products_1.Products);
+    const lowStockThreshold = 10; // Umbral de stock bajo
+    return yield productRepository.find({
+        where: {
+            stock: (0, typeorm_1.LessThan)(lowStockThreshold)
+        }
+    });
+});
+exports.checkLowStock = checkLowStock;
+// Servicio para notificar si hay stock bajo
+const notifyLowStock = () => __awaiter(void 0, void 0, void 0, function* () {
+    const lowStockProducts = yield (0, exports.checkLowStock)();
+    if (lowStockProducts.length > 0) {
+        console.log("Alerta: Stock bajo para los siguientes productos:", lowStockProducts);
+        // Aquí puedes añadir lógica para enviar un mensaje al frontend
+    }
+});
+exports.notifyLowStock = notifyLowStock;
+// src/services/productsService.ts
+const getLowStockProductsService = () => __awaiter(void 0, void 0, void 0, function* () {
+    const productRepository = data_source_1.AppDataSource.getRepository(Products_1.Products);
+    const lowStockThreshold = 5; // Umbral de stock bajo
+    return yield productRepository.find({
+        where: {
+            stock: (0, typeorm_1.LessThan)(lowStockThreshold) // Utiliza LessThan de TypeORM
+        }
+    });
+});
+exports.getLowStockProductsService = getLowStockProductsService;

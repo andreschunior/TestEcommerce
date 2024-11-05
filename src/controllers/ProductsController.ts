@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 
-import { addProductService, deleteProductService, getProductByIdService, getProductsByCategoryService, getProductsService, updateProductService } from "../services/productsService"; // Importa tu servicio de productos
+import { addProductService, adjustStockService,checkLowStock,deleteProductService, getLowStockProductsService, getProductByIdService, getProductsByCategoryService, getProductsService, notifyLowStock, sellProductsService, updateProductService,  } from "../services/productsService"; 
 import { Products } from "../entities/Products";
 import { AddProductDTO } from "../dto/productDTO";
+import { checkLowStockMiddleware } from "../middlewares/checkLowStockMiddleware";
 
 
 // Controlador para obtener todos los productos
@@ -102,3 +103,79 @@ export const deleteProductController = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error al eliminar producto' }); // Manejo de errores
     }
 };
+
+
+export const adjustStockController = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { quantity } = req.body;
+
+        if (quantity === undefined || quantity === 0) {
+            return res.status(400).json({ message: "La cantidad debe ser un número diferente de cero" });
+        }
+
+        const updatedProduct = await adjustStockService(parseInt(id), quantity);
+        res.status(200).json({ message: "Stock ajustado correctamente", product: updatedProduct });
+    } catch (error) {
+        console.error("Error al ajustar el stock:", (error as Error).message);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
+export const sellProductsController = async (req: Request, res: Response) => {
+    try {
+        const items = req.body; // Obtener la lista de artículos desde el cuerpo de la solicitud
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ message: "Se debe proporcionar un array de artículos para vender" });
+        }
+
+        const updatedProducts = await sellProductsService(items);
+        await checkLowStockMiddleware(req, res, () => {}); // Llama al middleware para verificar el stock
+
+        res.status(200).json({ message: "Ventas realizadas correctamente", products: updatedProducts });
+    } catch (error) {
+        console.error("Error al realizar la venta:", error);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
+
+
+export const getLowStockProducts = async (req: Request, res: Response) => {
+    try {
+        const lowStockProducts = await checkLowStock();
+
+        if (lowStockProducts.length === 0) {
+            return res.status(200).json({ message: "No hay productos con stock bajo" });
+        }
+
+        res.status(200).json({ message: "Productos con stock bajo", products: lowStockProducts });
+    } catch (error) {
+        console.error("Error al obtener productos con stock bajo:", error);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
+export const checkStockController = async (req: Request, res: Response) => {
+    try {
+        await notifyLowStock();
+        res.status(200).json({ message: "Verificación de stock realizada" });
+    } catch (error) {
+        console.error("Error al verificar stock:", error);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
+// src/controllers/ProductsController.ts
+export const getLowStockProductsController = async (req: Request, res: Response) => {
+    try {
+        const lowStockProducts = await getLowStockProductsService();
+        res.status(200).json(lowStockProducts);
+    } catch (error) {
+        console.error("Error al obtener productos con stock bajo:", error);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
+
